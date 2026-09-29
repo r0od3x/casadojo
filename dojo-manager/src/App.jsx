@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect, createContext, useContext } from "react";
 
 /* ─── API ────────────────────────────────────────────────────────────────── */
-const API = "http://localhost:3001";
+const API = (import.meta.env.VITE_API_URL || "http://localhost:3001").replace(/\/$/, "");
 const api = {
   getStudents:    ()           => fetch(`${API}/api/students`).then(r => r.json()),
   createStudent:  (s)          => fetch(`${API}/api/student`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(s) }).then(r=>r.json()),
@@ -10,6 +10,7 @@ const api = {
   getNote:        (name)       => fetch(`${API}/api/student/${encodeURIComponent(name)}/note`).then(r=>r.json()),
   saveNote:       (name, note) => fetch(`${API}/api/student/${encodeURIComponent(name)}/note`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({note}) }).then(r=>r.json()),
   uploadFiles:    (name, list) => { const fd=new FormData(); Array.from(list).forEach(f=>fd.append("files",f)); return fetch(`${API}/api/student/${encodeURIComponent(name)}/upload`,{method:"POST",body:fd}).then(r=>r.json()); },
+  getRootDir:     ()           => fetch(`${API}/api/config/root`).then(r=>r.json()),
   setRootDir:     (path)       => fetch(`${API}/api/config/root`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({path}) }).then(r=>r.json()),
 };
 
@@ -485,7 +486,7 @@ function SettingsModal({ open, onClose, rootDir, onApplyRoot, themeName, onTheme
           <div style={{ display:"flex", gap:8 }}>
             <input value={draft} onChange={e=>setDraft(e.target.value)}
               onKeyDown={e=>{ if(e.key==="Enter") onApplyRoot(draft); }}
-              style={inp} placeholder="D:/JudoDojo" />
+              style={inp} placeholder="C:/path/to/dojo-data" />
             <button onClick={()=>onApplyRoot(draft)} style={{ background:T.accent, border:"none", color:"#fff", borderRadius:6, padding:"9px 16px", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit", whiteSpace:"nowrap" }}>{L.apply}</button>
           </div>
         )}
@@ -971,7 +972,7 @@ export default function App() {
 
   const [students,    setStudents]    = useState([]);
   const [loadState,   setLoadState]   = useState("loading");
-  const [rootDir,     setRootDir]     = useState("D:/JudoDojo");
+  const [rootDir,     setRootDir]     = useState("");
   const [search,      setSearch]      = useState("");
   const [beltFilter,  setBeltFilter]  = useState("All");
   const [paidFilter,  setPaidFilter]  = useState("All");
@@ -996,12 +997,6 @@ export default function App() {
     setTimeout(()=>setToast({message:"",type:"ok"}),dur);
   }
 
-  async function loadStudents() {
-    setLoadState("loading");
-    try { setStudents(Array.isArray(await api.getStudents()?await api.getStudents():[]) ); setLoadState("ok"); }
-    catch { setLoadState("error"); }
-  }
-  // cleaner version:
   async function fetchStudents() {
     setLoadState("loading");
     try {
@@ -1010,7 +1005,10 @@ export default function App() {
       setLoadState("ok");
     } catch { setLoadState("error"); }
   }
-  useEffect(() => { fetchStudents(); }, []);
+  useEffect(() => {
+    fetchStudents();
+    api.getRootDir().then(r => { if (r?.root) setRootDir(r.root); }).catch(() => {});
+  }, []);
 
   const saveStudent = useCallback(async (f) => {
     if (!f.name.trim()) { showToast(L.toastNameReq,"error"); return; }
@@ -1212,7 +1210,7 @@ const filtered = useMemo(() => {
               {loadState==="error" && (
                 <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"60%", gap:16, textAlign:"center" }}>
                   <div style={{ fontSize:13, color:"#c07070" }}>{L.serverError}</div>
-                  <div style={{ fontSize:11, color:T.textFaint, lineHeight:1.8 }}>{L.serverErrorSub} <code style={{ color:T.textSub }}>localhost:3001</code><br/>Run: <code style={{ color:T.textSub }}>node server.js</code> {L.serverErrorRun}</div>
+                  <div style={{ fontSize:11, color:T.textFaint, lineHeight:1.8 }}>{L.serverErrorSub} <code style={{ color:T.textSub }}>{API}</code><br/>Run: <code style={{ color:T.textSub }}>node server.js</code> {L.serverErrorRun}</div>
                   <button onClick={fetchStudents} style={{ background:T.accent, border:"none", color:"#fff", borderRadius:6, padding:"9px 24px", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit" }}>{L.retryConn}</button>
                 </div>
               )}

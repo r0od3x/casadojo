@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment
+.env
+!.env.example
+
+# Student data created by the backend
+dojo-backend/data/
